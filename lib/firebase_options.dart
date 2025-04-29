@@ -42,12 +42,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCe4--ek3rESG87GX2BcqpRJNrEqoG1iV0',
-    appId: '1:584764414026:web:5e4099799ec727140e6eb3',
+    appId: '1:584764414026:web:20e42ad7eb6271b00e6eb3',
     messagingSenderId: '584764414026',
     projectId: 'testing-a04d9',
     authDomain: 'testing-a04d9.firebaseapp.com',
     databaseURL: 'https://testing-a04d9-default-rtdb.firebaseio.com',
     storageBucket: 'testing-a04d9.firebasestorage.app',
+    measurementId: 'G-VRCWZ2NLY6',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -64,9 +65,10 @@ class DefaultFirebaseOptions {
     appId: '1:584764414026:ios:d79b975479c898400e6eb3',
     messagingSenderId: '584764414026',
     projectId: 'testing-a04d9',
+    databaseURL: 'https://testing-a04d9-default-rtdb.firebaseio.com',
     storageBucket: 'testing-a04d9.firebasestorage.app',
-    iosClientId:
-        '584764414026-cclo7ucmkc8ngmpk7jtvrlaufst5m79q.apps.googleusercontent.com',
+    androidClientId: '584764414026-p7492kd0a23vllfdtcgo676pf8kfrnqo.apps.googleusercontent.com',
+    iosClientId: '584764414026-cclo7ucmkc8ngmpk7jtvrlaufst5m79q.apps.googleusercontent.com',
     iosBundleId: 'com.example.testing',
   );
 
@@ -77,18 +79,20 @@ class DefaultFirebaseOptions {
     projectId: 'testing-a04d9',
     databaseURL: 'https://testing-a04d9-default-rtdb.firebaseio.com',
     storageBucket: 'testing-a04d9.firebasestorage.app',
-    iosClientId:
-        '584764414026-cclo7ucmkc8ngmpk7jtvrlaufst5m79q.apps.googleusercontent.com',
+    androidClientId: '584764414026-p7492kd0a23vllfdtcgo676pf8kfrnqo.apps.googleusercontent.com',
+    iosClientId: '584764414026-cclo7ucmkc8ngmpk7jtvrlaufst5m79q.apps.googleusercontent.com',
     iosBundleId: 'com.example.testing',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyCe4--ek3rESG87GX2BcqpRJNrEqoG1iV0',
-    appId: '1:584764414026:web:20e42ad7eb6271b00e6eb3',
+    appId: '1:584764414026:web:1b1d2f55bfcf7dd70e6eb3',
     messagingSenderId: '584764414026',
     projectId: 'testing-a04d9',
     authDomain: 'testing-a04d9.firebaseapp.com',
     databaseURL: 'https://testing-a04d9-default-rtdb.firebaseio.com',
     storageBucket: 'testing-a04d9.firebasestorage.app',
+    measurementId: 'G-GBJ9X4C12E',
   );
+
 }

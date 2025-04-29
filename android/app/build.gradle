@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace "com.example.testing"  
+    namespace "com.arcsai.app"  
     compileSdkVersion 34  
 
     defaultConfig {
-        applicationId "com.example.testing"
+        applicationId "com.arcsai.app"
         minSdkVersion 23
         targetSdkVersion 34
         versionCode 1

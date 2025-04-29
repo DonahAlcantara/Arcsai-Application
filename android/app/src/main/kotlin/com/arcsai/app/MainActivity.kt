@@ -1,4 +1,4 @@
-package com.example.testing
+package com.arcsai.app
 
 import io.flutter.embedding.android.FlutterActivity
 

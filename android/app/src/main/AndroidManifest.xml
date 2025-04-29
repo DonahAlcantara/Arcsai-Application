@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.testing">
+    package="com.arcsai.app">
 
     <!-- ✅ Move permissions OUTSIDE the <application> tag -->
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -10,7 +10,7 @@
 
 
     <application
-        android:label="ARCSAI"
+        android:label="Arcsai"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -18,6 +18,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:label="Arcsai"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

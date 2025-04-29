@@ -2,24 +2,27 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'settings.dart';
 
 class NotificationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 245, 245, 245),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         title: Text(
           'Notifications',
-          style: TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+          style: Theme.of(context).appBarTheme.titleTextStyle,
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.settings),
+            icon: Icon(
+              Icons.settings,
+              color: Theme.of(context).appBarTheme.iconTheme?.color,
+            ),
             onPressed: () {
-              // Handle settings action
+              Navigator.pushNamed(context, '/settings');
             },
           ),
         ],
@@ -37,7 +40,12 @@ class NotificationPage extends StatelessWidget {
           var notifications = snapshot.data!.docs;
 
           if (notifications.isEmpty) {
-            return Center(child: Text("No notifications yet"));
+            return Center(
+              child: Text(
+                "No notifications yet",
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            );
           }
 
           var todayNotifications = notifications.where((notification) {
@@ -88,9 +96,10 @@ class NotificationPage extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Colors.blueAccent),
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
           ),
           SizedBox(height: 8),
           ...notifications
@@ -114,7 +123,10 @@ class NotificationPage extends StatelessWidget {
             .doc(notification.id)
             .delete();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Notification deleted')),
+          SnackBar(
+            content: Text('Notification deleted'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+          ),
         );
       },
       background: Container(
@@ -133,7 +145,7 @@ class NotificationPage extends StatelessWidget {
         margin: EdgeInsets.symmetric(vertical: 8),
         padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -160,19 +172,30 @@ class NotificationPage extends StatelessWidget {
                   Text(
                     data['title'] ?? "No Title",
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.black87),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   ),
                   SizedBox(height: 8),
                   Text(
                     data['description'] ?? "No Description",
-                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
                   ),
                   SizedBox(height: 8),
                   Text(
                     timestamp.toString(),
-                    style: TextStyle(fontSize: 12, color: Colors.black38),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.color
+                          ?.withOpacity(0.6),
+                    ),
                   ),
                 ],
               ),
