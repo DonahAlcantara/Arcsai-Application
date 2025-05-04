@@ -41,8 +41,9 @@ dependencies:
   shared_preferences: ^2.0.8
   provider: ^6.1.4
   connectivity_plus: ^6.0.5
- 
- 
+  network_info_plus: ^5.0.0  # For network information
+  permission_handler: ^11.0.0  # For handling permissions
+  wifi_iot: ^0.3.0
  
 
   # The following adds the Cupertino Icons font to your application.

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:developer';
 
+// Defines the login page as a StatefulWidget to manage dynamic state
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -11,29 +12,40 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // FirebaseAuth instance for authentication
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  // Controllers for email and password input fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  // Toggles password visibility
   bool _obscurePassword = true;
+  // Stores error messages for display
   String? _errorMessage;
+  // Tracks internet connectivity status
   bool _isConnected = true;
+  // Indicates if sign-in is in progress
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    // Check connectivity when the widget is initialized
     _checkConnectivity();
   }
 
+  // Checks and monitors internet connectivity
   Future<void> _checkConnectivity() async {
+    // Get initial connectivity status
     var connectivityResult = await Connectivity().checkConnectivity();
     setState(() {
       _isConnected = connectivityResult != ConnectivityResult.none;
     });
 
+    // Listen for connectivity changes
     Connectivity().onConnectivityChanged.listen((result) {
       setState(() {
         _isConnected = result != ConnectivityResult.none;
+        // Show error if disconnected, clear if connected
         if (!_isConnected) {
           _errorMessage = "No internet connection. Please check your network.";
         } else {
@@ -43,7 +55,9 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  // Handles email and password sign-in with Firebase
   Future<void> _signInWithEmail() async {
+    // Prevent sign-in if no internet connection
     if (!_isConnected) {
       setState(() {
         _errorMessage = "No internet connection. Please check your network.";
@@ -51,19 +65,24 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // Show loading state and clear previous errors
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      // Attempt sign-in with Firebase Authentication
       await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      // Log success
       log("Email Sign-In successful");
+      // Navigate to vacuum page and clear navigation stack
       Navigator.pushNamedAndRemoveUntil(context, '/vacuum', (route) => false);
     } on FirebaseAuthException catch (e) {
+      // Handle Firebase-specific errors
       setState(() {
         if (e.code == 'user-not-found' || e.code == 'wrong-password') {
           _errorMessage = "Incorrect email or password. Please try again.";
@@ -73,13 +92,16 @@ class _LoginPageState extends State<LoginPage> {
           _errorMessage = "Error: ${e.message}";
         }
       });
+      // Log error for debugging
       log("Email Sign-In Error: $e");
     } catch (e) {
+      // Handle unexpected errors
       setState(() {
         _errorMessage = "An unexpected error occurred: $e";
       });
       log("Email Sign-In Error: $e");
     } finally {
+      // Hide loading state
       setState(() {
         _isLoading = false;
       });
@@ -88,6 +110,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Build the UI with a Scaffold and gradient background
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -97,33 +120,38 @@ class _LoginPageState extends State<LoginPage> {
             colors: [Color(0xFF2A2E6A), Color(0xFF2A2E6A)],
           ),
         ),
+        // Center content with scrollable view for responsiveness
         child: Center(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Display app logo
                 CircleAvatar(
                   radius: 60,
                   backgroundColor: Theme.of(context).cardColor,
                   backgroundImage: AssetImage('assets/icon/logo.png'),
                 ),
                 SizedBox(height: 10),
+                // App name
                 Text(
                   "ARCSAI",
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    color: Colors.white,
                   ),
                 ),
+                // Welcome message
                 Text(
                   "We're happy to see you back",
                   style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    color: Colors.white,
                   ),
                 ),
                 SizedBox(height: 10),
+                // Card containing the sign-in form
                 Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -133,20 +161,24 @@ class _LoginPageState extends State<LoginPage> {
                     padding: EdgeInsets.all(15),
                     child: Column(
                       children: [
+                        // Sign-in title
                         Text(
                           "SIGN IN",
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            fontFamily: 'Poppins',
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
+                        // Form content
                         Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              // Display error message if present
                               if (_errorMessage != null) ...[
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
@@ -162,6 +194,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ],
                               const SizedBox(height: 10),
+                              // Email input field
                               TextField(
                                 controller: _emailController,
                                 decoration: InputDecoration(
@@ -173,10 +206,7 @@ class _LoginPageState extends State<LoginPage> {
                                         ?.color,
                                   ),
                                   filled: true,
-                                  fillColor: Theme.of(context)
-                                      .colorScheme
-                                      .surface
-                                      .withOpacity(0.1),
+                                  fillColor: Colors.grey[200],
                                   prefixIcon: Icon(
                                     Icons.email,
                                     color: Theme.of(context).iconTheme.color,
@@ -198,6 +228,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                               const SizedBox(height: 10),
+                              // Password input field with visibility toggle
                               TextField(
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
@@ -210,10 +241,7 @@ class _LoginPageState extends State<LoginPage> {
                                         ?.color,
                                   ),
                                   filled: true,
-                                  fillColor: Theme.of(context)
-                                      .colorScheme
-                                      .surface
-                                      .withOpacity(0.1),
+                                  fillColor: Colors.grey[200],
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(30),
                                     borderSide: BorderSide.none,
@@ -233,6 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                                           : Icons.visibility,
                                       color: Theme.of(context).iconTheme.color,
                                     ),
+                                    // Toggle password visibility
                                     onPressed: () {
                                       setState(() {
                                         _obscurePassword = !_obscurePassword;
@@ -248,6 +277,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                               const SizedBox(height: 15),
+                              // Sign-in button with loading indicator
                               ElevatedButton(
                                 onPressed: _isLoading ? null : _signInWithEmail,
                                 style: ElevatedButton.styleFrom(

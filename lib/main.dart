@@ -22,38 +22,47 @@ import 'package:provider/provider.dart';
 import 'theme_provider.dart';
 import 'settings.dart';
 
+// Background service initialization callback
 void onStart(ServiceInstance service) {
   log('Background service started');
 }
 
+// iOS-specific background fetch handler
 bool onIosBackground(ServiceInstance service) {
   log('iOS background fetch');
   return true;
 }
 
+// Workmanager callback for periodic tasks and notifications
 void callbackDispatcher() {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  // Initialize Android notification settings
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
   final InitializationSettings initializationSettings =
       InitializationSettings(android: initializationSettingsAndroid);
 
+  // Initialize local notifications for background tasks
   flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
+  // Execute background task
   Workmanager().executeTask((task, inputData) async {
     return Future.value(true);
   });
 }
 
+// Global navigator key for navigation from non-widget contexts
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+// Configure timezone to Asia/Manila for scheduling
 void _configureLocalTimeZone() {
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Asia/Manila'));
 }
 
+// Initialize local notifications for the app
 void initializeNotifications() {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -64,15 +73,22 @@ void initializeNotifications() {
   final InitializationSettings initSettings =
       InitializationSettings(android: androidSettings);
 
+  // Initialize notifications with Android settings
   flutterLocalNotificationsPlugin.initialize(initSettings);
 }
 
+// App entry point
 void main() async {
+  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
+  // Set up timezone and notifications
   _configureLocalTimeZone();
   initializeNotifications();
+  // Initialize Firebase
   await Firebase.initializeApp();
+  // Initialize Workmanager for background tasks
   Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+  // Run the app with ThemeProvider for dynamic theming
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
@@ -80,8 +96,10 @@ void main() async {
     ),
   );
 
+  // Configure Firebase Cloud Messaging (FCM)
   FirebaseMessaging messaging = FirebaseMessaging.instance;
 
+  // Request notification permissions
   NotificationSettings settings = await messaging.requestPermission(
     alert: true,
     announcement: false,
@@ -89,29 +107,34 @@ void main() async {
     sound: true,
   );
 
+  // Log permission status
   if (settings.authorizationStatus == AuthorizationStatus.authorized) {
     log("Notification permission granted.");
   } else {
     log("Notification permission denied.");
   }
 
+  // Retrieve and log FCM token
   String? token = await messaging.getToken();
   print("FCM Token: $token");
 }
 
+// Main app widget with theme and navigation setup
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Use Consumer to access ThemeProvider for dynamic theme updates
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: navigatorKey,
-          theme: themeProvider.themeData,
-          home: LoginPage(),
+          theme: themeProvider.themeData, // Apply dynamic theme
+          home: LoginPage(), // Start with login page
           routes: {
+            // Define app routes
             '/vacuum': (context) => VacuumControlScreen(),
             '/notifications': (context) => NotificationPage(),
             '/scheduling': (context) => SchedulingScreen(),
@@ -123,64 +146,82 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// Main screen for controlling the vacuum cleaner
 class VacuumControlScreen extends StatefulWidget {
   @override
   _VacuumControlScreenState createState() => _VacuumControlScreenState();
 }
 
 class _VacuumControlScreenState extends State<VacuumControlScreen> {
-  static _VacuumControlScreenState? _instance; // Hold the instance
+  // Singleton instance for static access
+  static _VacuumControlScreenState? _instance;
 
-  String? nextSchedule;
-  String? nextScheduledClean;
-  bool isLoading = true;
-  int notificationCount = 0;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference database = FirebaseDatabase.instance.ref();
+  // State variables
+  String? nextSchedule; // Next scheduled cleaning time
+  String? nextScheduledClean; // Formatted next schedule display
+  bool isLoading = true; // Loading state for initialization
+  int notificationCount = 0; // Count of unread notifications
+  final FirebaseAuth _auth = FirebaseAuth.instance; // Firebase authentication
+  final DatabaseReference database =
+      FirebaseDatabase.instance.ref(); // Firebase database reference
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-  final Battery _battery = Battery();
-  Timer? _scheduleTimer;
-  Timer? _stopVacuumTimer;
-  int _batteryLevel = 100;
-  bool isMoving = false;
-  bool isCleaning = false;
-  bool vacuum = true;
-  bool wiper = false;
-  String lastCleanTime = "Not started yet";
-  DateTime? startTime;
-  String firstLetter = '';
-  final Set<String> processedScheduleIds = {};
-  bool _hasNotifiedLowBattery = false;
+      FlutterLocalNotificationsPlugin(); // Local notifications
+  final Battery _battery = Battery(); // Battery monitoring
+  Timer? _scheduleTimer; // Periodic timer for schedule checks
+  Timer? _stopVacuumTimer; // Timer to stop vacuum after a duration
+  int _batteryLevel = 100; // Current battery level
+  bool isMoving = false; // Vacuum movement status
+  bool isCleaning = false; // Vacuum cleaning status
+  bool vacuum = false; // Vacuum feature toggle
+  bool wiper = false; // Wiper feature toggle
+  String lastCleanTime = "Not started yet"; // Last cleaning timestamp
+  DateTime? startTime; // Start time of cleaning
+  String firstLetter = ''; // First letter of user's email
+  final Set<String> processedScheduleIds = {}; // Track processed schedules
+  bool _hasNotifiedLowBattery = false; // Flag for low battery notification
+  bool isConnected = false; // Device connection status
 
   @override
   void initState() {
     super.initState();
-    _instance = this; // Store the instance
-    _loadUserProfile();
-    _listenToFeatureChanges();
-    _getBatteryLevel();
-    _listenToRobotCommands();
-    _listenToNotifications();
+    _instance = this; // Store singleton instance
+    // Initialize state and listeners
+    _loadUserProfile(); // Load user profile data
+    _listenToFeatureChanges(); // Monitor feature toggles
+    _getBatteryLevel(); // Get initial battery level
+    _listenToRobotCommands(); // Monitor vacuum commands
+    _listenToNotifications(); // Monitor notification updates
+    _initializeDeviceStatus(); // Initialize device status in Firebase
+    _listenToDeviceConnection(); // Monitor device connection status
 
+    // Listen for battery state changes
     _battery.onBatteryStateChanged.listen((BatteryState state) {
       _getBatteryLevel();
     });
 
+    // Subscribe to FCM topic for vacuum status updates
     FirebaseMessaging.instance.subscribeToTopic("vacuumStatus");
+    // Set up local notifications
     setupLocalNotifications();
+    // Listen for vacuum status changes
     listenToVacuumStatus();
+    // Fetch schedules
     fetchSchedule();
+    // Load next schedule
     loadNextSchedule();
 
+    // Ensure vacuum is stopped unless already running
     database.child("robot_commands").get().then((event) {
       final data = event.value;
-      if (data is! Map) return;
-      if (data["Clean"] == true) {
-        triggerVacuum(true, fromSchedule: false);
+      if (data is Map && data["Clean"] == true) {
+        log("Vacuum is already running on initialization, preserving state.");
+      } else {
+        triggerVacuum(false, fromSchedule: false);
+        log("Vacuum stopped by default after login.");
       }
     });
 
+    // Monitor vacuum feature changes
     database.child("features/vacuum").onValue.listen((event) {
       if (event.snapshot.value != null) {
         setState(() {
@@ -189,6 +230,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
       }
     });
 
+    // Monitor wiper feature changes
     database.child("features/wiper").onValue.listen((event) {
       if (event.snapshot.value != null) {
         setState(() {
@@ -196,6 +238,8 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         });
       }
     });
+
+    // Periodically check schedules every 5 seconds
     _scheduleTimer = Timer.periodic(Duration(seconds: 5), (Timer timer) {
       if (mounted) {
         fetchSchedule();
@@ -203,6 +247,76 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Initialize device_status/connected node in Firebase
+  void _initializeDeviceStatus() async {
+    DatabaseEvent event =
+        await database.child("device_status/connected").once();
+    if (!event.snapshot.exists) {
+      try {
+        await database.child("device_status").set({"connected": false});
+        log("Initialized device_status/connected to false");
+      } catch (e) {
+        log("Failed to initialize device_status: $e");
+      }
+    }
+  }
+
+  // Monitor device connection status
+  void _listenToDeviceConnection() {
+    database.child("device_status/connected").onValue.listen((event) {
+      if (mounted) {
+        final value = event.snapshot.value;
+        bool newConnectionStatus = value is bool ? value : false;
+        setState(() {
+          isConnected = newConnectionStatus;
+        });
+        log("Device connection status updated: $isConnected");
+        // Stop vacuum if device disconnects while running
+        if (!isConnected && isMoving) {
+          triggerVacuum(false, fromSchedule: false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Vacuum stopped: Device disconnected."),
+            ),
+          );
+          log("Vacuum stopped due to device disconnection.");
+        }
+      }
+    }, onError: (error) {
+      log("Failed to listen to device connection: $error");
+      if (mounted) {
+        setState(() {
+          isConnected = false;
+        });
+        // Stop vacuum on connection error
+        if (isMoving) {
+          triggerVacuum(false, fromSchedule: false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Vacuum stopped: Connection error."),
+            ),
+          );
+          log("Vacuum stopped due to connection error.");
+        }
+      }
+    });
+  }
+
+  // Toggle device connection status for testing
+  void _toggleDeviceConnection() async {
+    final newStatus = !isConnected;
+    try {
+      await database.child("device_status").set({"connected": newStatus});
+      log("Device connection status set to: $newStatus");
+    } catch (e) {
+      log("Failed to update device connection status: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to update device connection status.")),
+      );
+    }
+  }
+
+  // Monitor notifications and update count
   void _listenToNotifications() {
     database.child('notifications').onValue.listen((event) {
       if (mounted) {
@@ -214,6 +328,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Clear all notifications
   void _clearNotifications() async {
     await database.child('notifications').remove();
     setState(() {
@@ -223,13 +338,14 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
 
   @override
   void dispose() {
-    _instance = null; // Clear the instance
+    _instance = null; // Clear singleton instance
     print("VacuumControlScreen: dispose()");
-    _scheduleTimer?.cancel();
-    _stopVacuumTimer?.cancel();
+    _scheduleTimer?.cancel(); // Cancel schedule timer
+    _stopVacuumTimer?.cancel(); // Cancel stop vacuum timer
     super.dispose();
   }
 
+  // Monitor vacuum command changes
   void _listenToRobotCommands() {
     database.child("robot_commands/Clean").onValue.listen((event) {
       if (event.snapshot.exists && mounted) {
@@ -240,6 +356,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Get current battery level
   void _getBatteryLevel() async {
     final batteryLevel = await _battery.batteryLevel;
     setState(() {
@@ -248,10 +365,11 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     checkBatteryStatus(batteryLevel);
   }
 
+  // Monitor feature toggle changes
   void _listenToFeatureChanges() {
     database.child("features/vacuum").onValue.listen((event) {
       setState(() {
-        vacuum = event.snapshot.value as bool? ?? true;
+        vacuum = event.snapshot.value as bool? ?? false;
       });
     });
 
@@ -262,8 +380,19 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Toggle vacuum feature
   void toggleFeature1() async {
     final newValue = !vacuum;
+    // Ensure at least one feature is on
+    if (!newValue && !wiper) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              "At least one feature (Vacuum or Wiper) must be on during cleaning."),
+        ),
+      );
+      return;
+    }
     try {
       await database.child("features/vacuum").set(newValue).then((_) {
         if (mounted) {
@@ -273,11 +402,25 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
       });
     } catch (e) {
       log("Failed to toggle vacuum: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to toggle vacuum feature.")),
+      );
     }
   }
 
+  // Toggle wiper feature
   void toggleFeature2() async {
     final newValue = !wiper;
+    // Ensure at least one feature is on
+    if (!newValue && !vacuum) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              "At least one feature (Vacuum or Wiper) must be on during cleaning."),
+        ),
+      );
+      return;
+    }
     try {
       await database.child("features/wiper").set(newValue).then((_) {
         if (mounted) {
@@ -287,9 +430,13 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
       });
     } catch (e) {
       log("Failed to toggle wiper: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to toggle wiper feature.")),
+      );
     }
   }
 
+  // Load user profile data (first letter of email)
   void _loadUserProfile() {
     User? user = _auth.currentUser;
     setState(() {
@@ -301,12 +448,14 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Set up local notifications
   void setupLocalNotifications() {
     var initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     var initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
 
+    // Initialize notifications with tap handler
     flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
@@ -317,10 +466,12 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     );
   }
 
+  // Handle notification tap to navigate to notifications page
   void _handleNotificationTap(String payload) {
     navigatorKey.currentState?.pushNamed('/notifications');
   }
 
+  // Show local notification
   void _showLocalNotification(String? title, String? body, int id) {
     flutterLocalNotificationsPlugin.show(
       id,
@@ -337,6 +488,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     );
   }
 
+  // Monitor vacuum status changes
   void listenToVacuumStatus() {
     database.child("vacuum_status").onValue.listen((event) {
       final data = event.snapshot.value as Map?;
@@ -349,6 +501,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Check battery status and send notifications if low
   void checkBatteryStatus(int batteryLevel) {
     if (batteryLevel < 25 && !_hasNotifiedLowBattery) {
       _showLocalNotification(
@@ -356,6 +509,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         "Vacuum battery is at $batteryLevel%. Please charge.",
         3,
       );
+      // Log low battery notification in Firebase
       database.child('notifications').push().set({
         'title': 'Battery Low',
         'description': 'Vacuum battery is at $batteryLevel%. Please charge.',
@@ -371,29 +525,28 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         _hasNotifiedLowBattery = false;
       });
     }
-  }
 
-  void updateVacuumStatus(String status) {
-    if (status == "cleaning") {
-      _showLocalNotification(
-          "Vacuum Alert", "Your vacuum is Cleaning! Check it.", 4);
-      database.child('notifications').push().set({
-        'title': 'Vacuum Alert',
-        'description': 'Your vacuum is Cleaning! Check it.',
-        'type': 'Vacuum Process',
-        'timestamp': ServerValue.timestamp,
-      });
-    } else if (status == "charging") {
-      _showLocalNotification("Charging", "Vacuum is charging.", 5);
-      database.child('notifications').push().set({
-        'title': 'Charging',
-        'description': 'Vacuum is charging.',
-        'type': 'Vacuum Process',
-        'timestamp': ServerValue.timestamp,
-      });
+    // Log low battery using NotificationPage
+    if (batteryLevel < 25 && !_hasNotifiedLowBattery) {
+      NotificationPage().lowBattery(batteryLevel);
     }
   }
 
+  // Update vacuum status and send notifications
+  void updateVacuumStatus(String status) {
+    if (status == "cleaning") {
+      NotificationPage().startCleaning(DateTime.now(), "room");
+    } else if (status == "charging") {
+      NotificationPage().addNotification(
+        title: "Charging",
+        description: "Vacuum is charging.",
+        type: "Vacuum Process",
+      );
+      _showLocalNotification("Charging", "Vacuum is charging.", 5);
+    }
+  }
+
+  // Load the next scheduled cleaning time
   void loadNextSchedule() async {
     DatabaseEvent event = await database.child("schedules").once();
     if (event.snapshot.exists && event.snapshot.value != null) {
@@ -403,6 +556,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         List<MapEntry<dynamic, dynamic>> schedulesList =
             schedulesMap.entries.toList();
 
+        // Sort schedules by date
         schedulesList.sort((a, b) {
           if (a.value is Map &&
               a.value.containsKey("dateTime") &&
@@ -421,6 +575,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         DateTime now = DateTime.now().toLocal();
         bool foundFutureSchedule = false;
 
+        // Find the next future schedule
         for (var entry in schedulesList) {
           if (entry.value is Map &&
               entry.value.containsKey("dateTime") &&
@@ -462,16 +617,29 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     }
   }
 
+  // Placeholder for starting vacuum process
   void startVacuumProcess() {
     log("Vacuum process started");
   }
 
+  // Toggle vacuum movement
   void toggleMovementAsync() async {
+    // Prevent action if device is disconnected
+    if (!isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Cannot start vacuum: Device is disconnected."),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       isMoving = !isMoving;
     });
     triggerVacuum(isMoving, fromSchedule: false);
 
+    // Update last clean time when stopping
     if (!isMoving) {
       _stopVacuumTimer?.cancel();
       DateTime scheduledDateTime = DateTime.now();
@@ -487,6 +655,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     }
   }
 
+  // Toggle cleaning status
   void toggleCleaningStatus() async {
     bool newStatus = !isCleaning;
     log(newStatus ? "Vacuum started cleaning" : "Vacuum stopped");
@@ -498,35 +667,53 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
     });
   }
 
+  // Static method to trigger vacuum from external calls
   static void triggerVacuumStatic(bool start, {required bool fromSchedule}) {
     if (_instance != null && _instance!.mounted) {
       _instance!.triggerVacuum(start, fromSchedule: fromSchedule);
     }
   }
 
+  // Trigger vacuum start/stop
   void triggerVacuum(bool start, {required bool fromSchedule}) async {
     print(
         "triggerVacuum called with start: $start, fromSchedule: $fromSchedule");
     setState(() {
       isMoving = start;
+      // Update feature toggles based on start/stop
+      if (start) {
+        vacuum = true;
+        wiper = false;
+      } else {
+        vacuum = false;
+        wiper = false;
+      }
     });
-    log(start ? "Vacuum should start now!" : "Vacuum should stop.");
 
+    // Update Firebase with vacuum status and features
     DatabaseReference robotCommandsRef = database.child("robot_commands");
-    await robotCommandsRef.update({"Clean": start}).then((_) {
-      log("Vacuum status updated successfully in Firebase.");
+    DatabaseReference featuresRef = database.child("features");
+    await Future.wait([
+      robotCommandsRef.update({"Clean": start}),
+      featuresRef.update({
+        "vacuum": start ? true : false,
+        "wiper": start ? false : false,
+      }),
+    ]).then((_) {
+      log("Vacuum status and features updated successfully in Firebase.");
       if (mounted) {
         setState(() {
           isMoving = start;
         });
       }
     }).catchError((error) {
-      log("Failed to update vacuum status: $error");
+      log("Failed to update vacuum status or features: $error");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Failed to update vacuum status.")),
       );
     });
 
+    // Send notification for scheduled actions
     if (fromSchedule) {
       await database.child('notifications').push().set({
         'title': 'Vacuum Status',
@@ -538,6 +725,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
           start ? "Cleaning started" : "Cleaning stopped", start ? 1 : 2);
     }
 
+    // Update last clean time when stopping
     if (!start) {
       DateTime now = DateTime.now();
       String formattedTime =
@@ -549,8 +737,16 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         lastCleanTime = formattedTime;
       });
     }
+
+    // Log cleaning start/stop notifications
+    if (start) {
+      NotificationPage().startCleaning(DateTime.now(), "room");
+    } else {
+      NotificationPage().stopCleaning(DateTime.now());
+    }
   }
 
+  // Fetch and process schedules
   void fetchSchedule() {
     print("VacuumControlScreen: fetchSchedule() called");
     database.child("schedules").onValue.listen((event) {
@@ -573,6 +769,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
         Map<dynamic, dynamic> schedulesMap = data as Map<dynamic, dynamic>;
         List<MapEntry> entries = schedulesMap.entries.toList();
 
+        // Sort schedules by date
         entries.sort((a, b) {
           if (a.value is Map &&
               a.value.containsKey("dateTime") &&
@@ -595,6 +792,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
 
         print("VacuumControlScreen: fetchSchedule: Current time (Local): $now");
 
+        // Process each schedule
         for (var entry in entries) {
           if (entry.value is Map &&
               entry.value.containsKey("dateTime") &&
@@ -608,6 +806,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
 
             bool shouldTrigger = false;
 
+            // Check if schedule should trigger
             if (entry.value["enabled"] == true &&
                 !processedScheduleIds.contains(scheduleId)) {
               Duration difference = now.difference(scheduledDateTime);
@@ -640,17 +839,31 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
               }
             }
 
+            // Trigger vacuum for valid schedule
             if (shouldTrigger && !isMoving) {
+              if (!isConnected) {
+                log("Cannot start vacuum for schedule $scheduleId: Device is disconnected.");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        "Scheduled cleaning at ${intl.DateFormat('yyyy-MM-dd – kk:mm').format(scheduledDateTime)} cannot start: Device is disconnected."),
+                  ),
+                );
+                continue;
+              }
+
               processedScheduleIds.add(scheduleId);
               triggerVacuum(true, fromSchedule: true);
               log("Vacuum start command sent due to schedule: $scheduleId");
 
+              // Disable one-time schedules
               if (entry.value["repeat"] == "Once") {
                 database
                     .child("schedules/$scheduleId")
                     .update({"enabled": false});
               }
 
+              // Set timer to stop vacuum after 5 minutes
               _stopVacuumTimer?.cancel();
               _stopVacuumTimer = Timer(Duration(minutes: 5), () {
                 if (mounted && isMoving) {
@@ -660,6 +873,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
               });
             }
 
+            // Update next schedule display
             if (scheduledDateTime.isAfter(now) && nextScheduleTime == null) {
               nextScheduleTime = intl.DateFormat('yyyy-MM-dd – kk:mm')
                   .format(scheduledDateTime);
@@ -687,11 +901,13 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Build UI with Scaffold
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
       body: SafeArea(
         child: Column(
           children: [
+            // Header with app name, status, and notifications
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Row(
@@ -700,10 +916,12 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // App title
                       Text(
                         'ARCSAI Vacuum',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
+                      // Vacuum status
                       Text(
                         isMoving ? 'Cleaning in progress' : 'Ready to clean',
                         style: Theme.of(context).textTheme.titleMedium,
@@ -712,6 +930,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                   ),
                   Row(
                     children: [
+                      // Notification icon with badge
                       Stack(
                         children: [
                           IconButton(
@@ -755,6 +974,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                         ],
                       ),
                       SizedBox(width: 10),
+                      // User avatar with first letter
                       CircleAvatar(
                         radius: 20,
                         backgroundColor: Theme.of(context).cardColor,
@@ -772,6 +992,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                 ],
               ),
             ),
+            // Main content area
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -784,6 +1005,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Start/Stop vacuum button
                     SizedBox(
                       width: 200,
                       height: 200,
@@ -804,41 +1026,44 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                       ),
                     ),
                     SizedBox(height: 50),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          children: [
-                            Text(
-                              "Vacuum",
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                            Switch(
-                              value: vacuum,
-                              onChanged: (value) {
-                                toggleFeature1();
-                              },
-                            ),
-                          ],
-                        ),
-                        SizedBox(width: 20),
-                        Column(
-                          children: [
-                            Text(
-                              "Wiper",
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                            Switch(
-                              value: wiper,
-                              onChanged: (value) {
-                                toggleFeature2();
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                    // Feature toggles (shown only when vacuum is moving)
+                    if (isMoving)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              Text(
+                                "Vacuum",
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              Switch(
+                                value: vacuum,
+                                onChanged: (value) {
+                                  toggleFeature1();
+                                },
+                              ),
+                            ],
+                          ),
+                          SizedBox(width: 20),
+                          Column(
+                            children: [
+                              Text(
+                                "Wiper",
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              Switch(
+                                value: wiper,
+                                onChanged: (value) {
+                                  toggleFeature2();
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     SizedBox(height: 20),
+                    // Schedule card
                     GestureDetector(
                       onTap: () {
                         Navigator.pushNamed(context, '/scheduling');
@@ -895,7 +1120,9 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 5),
+
+                    SizedBox(height: 10),
+                    // Status card (device, battery, last clean)
                     Card(
                       margin:
                           EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -911,6 +1138,68 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            // Device connection status
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: isConnected
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .secondary
+                                              .withOpacity(0.1)
+                                          : Colors.red.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: CircleAvatar(
+                                      backgroundImage:
+                                          AssetImage('assets/icon/logo.png'),
+                                      backgroundColor: isConnected
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .secondary
+                                              .withOpacity(0.1)
+                                          : Colors.red.withOpacity(0.1),
+                                      radius: 14,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Device',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.color,
+                                    ),
+                                  ),
+                                  Text(
+                                    isConnected ? 'Connected' : 'Disconnected',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              height: 50,
+                              width: 1,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surface
+                                  .withOpacity(0.2),
+                            ),
+                            // Battery status
                             Expanded(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -966,6 +1255,7 @@ class _VacuumControlScreenState extends State<VacuumControlScreen> {
                                   .surface
                                   .withOpacity(0.2),
                             ),
+                            // Last clean time
                             Expanded(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
